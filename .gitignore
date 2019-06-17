@@ -1,4 +1,4 @@
 .vscode/
 build/
 venv
-config.h
+src/config.h
