@@ -8,7 +8,9 @@
 #include <ESP8266WiFi.h>
 #include "config.h"
 
-#define DHT_PIN 0
+#define DHT_PIN 0 // D3
+#define RED_PIN 12 // D6
+#define GREEN_PIN 14 // D5
 #define DHT_TYPE DHT22
 
 DHT_Unified dht(DHT_PIN, DHT_TYPE);
@@ -20,14 +22,20 @@ void connect();
 void setup() {
     Serial.begin(115200);
     Serial.println(F("DHTxx test!"));
+    pinMode(GREEN_PIN, OUTPUT);
+    pinMode(RED_PIN, OUTPUT);
+    digitalWrite(GREEN_PIN, HIGH);
+    digitalWrite(RED_PIN, HIGH);
 
     WiFi.mode(WIFI_AP_STA);
     WiFi.begin(SSID, PASSWORD);
 
     mqtt.begin(HOST, wifi);
 
-    connect();
+    testLEDs();
 
+    connect();
+    
     dht.begin();
 
     sensor_t sensor;
@@ -56,18 +64,22 @@ void setup() {
 void loop() {
 
     if (!mqtt.connected()) {
+        setLED("error");
         Serial.println("connecting to mqtt");
         connect();
     }
+    setLED("ok");
 
     delay(2000);
 
     sensors_event_t event;
     dht.temperature().getEvent(&event);
     if(isnan(event.temperature)) {
+        setLED("error");
         Serial.println("Failed to read temperature.");
         return;
     } else {
+        setLED("ok");
         mqtt.publish("temperature", String(event.temperature));
         Serial.print("Temperature: ");
         Serial.print(event.temperature);
@@ -88,6 +100,7 @@ void loop() {
 }
 
 void connect() {
+    setLED("error");
     while(WiFi.waitForConnectResult() != WL_CONNECTED) {
         WiFi.begin(SSID, PASSWORD);
         Serial.println("Wifi connection failed. Retry...");
@@ -101,4 +114,29 @@ void connect() {
     }
 
     Serial.println("MQTT connected!");
+    setLED("ok");
+}
+
+void testLEDs() {
+    Serial.println("Testing leds...");
+    for(int i = 0; i < 5; i += 1){
+        digitalWrite(GREEN_PIN, HIGH);
+        delay(100);
+        digitalWrite(RED_PIN, HIGH);
+        delay(100);
+        digitalWrite(GREEN_PIN, LOW);
+        delay(100);
+        digitalWrite(RED_PIN, LOW);
+        delay(100);
+    }
+}
+
+void setLED(String mode) {
+    if(mode == "error") {
+        digitalWrite(RED_PIN, HIGH);
+        digitalWrite(GREEN_PIN, LOW);
+    } else if (mode == "ok") {
+        digitalWrite(RED_PIN, LOW);
+        digitalWrite(GREEN_PIN, HIGH);
+    }
 }
