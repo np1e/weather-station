@@ -12,6 +12,7 @@
 #define RED_PIN 12 // D6
 #define GREEN_PIN 14 // D5
 #define DHT_TYPE DHT22
+#define SLEEP_TIME 1800 // 900s = 15min
 
 DHT_Unified dht(DHT_PIN, DHT_TYPE);
 WiFiClient wifi;
@@ -25,61 +26,39 @@ void setup() {
     pinMode(GREEN_PIN, OUTPUT);
     pinMode(RED_PIN, OUTPUT);
     digitalWrite(GREEN_PIN, HIGH);
-    digitalWrite(RED_PIN, HIGH);
 
     WiFi.mode(WIFI_AP_STA);
     WiFi.begin(SSID, PASSWORD);
 
     mqtt.begin(HOST, wifi);
 
-    testLEDs();
+    //testLEDs();
 
     connect();
-    
-    dht.begin();
 
-    sensor_t sensor;
-    dht.temperature().getSensor(&sensor);
-    Serial.println(F("------------------------------------"));
-    Serial.println(F("Temperature Sensor"));
-    Serial.print  (F("Sensor Type: ")); Serial.println(sensor.name);
-    Serial.print  (F("Driver Ver:  ")); Serial.println(sensor.version);
-    Serial.print  (F("Unique ID:   ")); Serial.println(sensor.sensor_id);
-    Serial.print  (F("Max Value:   ")); Serial.print(sensor.max_value); Serial.println(F("°C"));
-    Serial.print  (F("Min Value:   ")); Serial.print(sensor.min_value); Serial.println(F("°C"));
-    Serial.print  (F("Resolution:  ")); Serial.print(sensor.resolution); Serial.println(F("°C"));
-    Serial.println(F("------------------------------------"));
-    // Print humidity sensor details.
-    dht.humidity().getSensor(&sensor);
-    Serial.println(F("Humidity Sensor"));
-    Serial.print  (F("Sensor Type: ")); Serial.println(sensor.name);
-    Serial.print  (F("Driver Ver:  ")); Serial.println(sensor.version);
-    Serial.print  (F("Unique ID:   ")); Serial.println(sensor.sensor_id);
-    Serial.print  (F("Max Value:   ")); Serial.print(sensor.max_value); Serial.println(F("%"));
-    Serial.print  (F("Min Value:   ")); Serial.print(sensor.min_value); Serial.println(F("%"));
-    Serial.print  (F("Resolution:  ")); Serial.print(sensor.resolution); Serial.println(F("%"));
-    Serial.println(F("------------------------------------"));
+    readTemperature();
+    delay(1000);
+
+    Serial.print("Going to sleep now for "); Serial.print(SLEEP_TIME); Serial.println(" seconds.");
+    ESP.deepSleep(SLEEP_TIME * 1000000);
+    digitalWrite(RED_PIN, HIGH);
 }
 
-void loop() {
+void readTemperature() {
 
     if (!mqtt.connected()) {
-        setLED("error");
         Serial.println("connecting to mqtt");
         connect();
     }
-    setLED("ok");
 
-    delay(2000);
+    dht.begin();
 
     sensors_event_t event;
     dht.temperature().getEvent(&event);
     if(isnan(event.temperature)) {
-        setLED("error");
         Serial.println("Failed to read temperature.");
         return;
     } else {
-        setLED("ok");
         mqtt.publish("temperature", String(event.temperature));
         Serial.print("Temperature: ");
         Serial.print(event.temperature);
@@ -96,7 +75,11 @@ void loop() {
         Serial.print(event.relative_humidity);
         Serial.println(" %");
     }
-    
+
+}
+
+void loop() {
+
 }
 
 void connect() {
